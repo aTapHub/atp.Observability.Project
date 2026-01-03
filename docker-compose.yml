@@ -1,0 +1,154 @@
+# C:\Repos\atp.Observability.Project\docker-compose.yml
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: atp_prometheus
+    ports:
+      # Exposes Prometheus Web UI
+      - "9090:9090"
+    volumes:
+      # Mounts your custom config file from the Monitoring.Grafana subfolder
+      - ./Monitoring.Grafana/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus #  Persist prmetheus data
+    command:
+      - '--web.enable-remote-write-receiver'
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--enable-feature=native-histograms'
+    networks:
+      - monitoring_net
+    
+  grafana:
+    image: grafana/grafana:latest
+    container_name: atp_grafana
+    ports:
+      # Exposes Grafana Web UI
+      - "3000:3000"
+    environment:
+      # Default credentials for easy setup
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=password
+    volumes:
+      # Persists user-defined dashboards and configuration data
+      - ./Monitoring.Grafana/grafana_data:/var/lib/grafana
+    depends_on:
+      # Ensures Prometheus starts before Grafana attempts to connect to it
+      - prometheus
+    networks:
+      - monitoring_net
+   
+   
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--path.udev.data=/rootfs/run/udev/data'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - '--web.listen-address=:9100'
+    ports:
+      - "9100:9100"
+    restart: always
+    networks:
+      - monitoring_net
+      
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1 
+    container_name: cadvisor
+    privileged: true
+    # This environment variable fixes the "missing names" on Windows 10/11
+    environment:
+      - DOCKER_API_VERSION=1.44 
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - '--docker_only=true'         # <--- Hides the "15 extra" system paths
+      - '--housekeeping_interval=10s'
+    networks:
+      - monitoring_net
+   
+  mysql-exporter:
+    image: prom/mysqld-exporter:latest
+    container_name: mysql-exporter
+    command:
+      - '--mysqld.address=db:3306'
+      - '--mysqld.username=exporter:exporter_password'
+    ports:
+      - "9104:9104"
+    restart: always
+    networks:
+      - monitoring_net
+  
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx-exporter
+    command:
+      # This points the exporter to your proxy container's status page
+      - "-nginx.scrape-uri=http://proxy:80/stub_status"
+    ports:
+      - "9113:9113" 
+    networks:
+      - monitoring_net
+ 
+  loki:
+    image: grafana/loki:3.0.0
+    ports:
+      - "3100:3100"
+    volumes:
+      # 1. Map your config file from your host to the container
+      - ./loki-config.yaml:/etc/loki/local-config.yaml
+      # 2. Persist the actual logs (chunks and index)
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring_net
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    user: root
+    volumes:
+      # 1. Map the config file
+      - ./promtail-config.yaml:/etc/promtail/config.yml
+      # 2. IMPORTANT: Map the Docker socket so Promtail can "discover" your other containers
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # 3. Map the container logs path (Internal to Docker/WSL2)
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - promtail_positions:/tmp/
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - monitoring_net
+      
+  tempo:
+    image: grafana/tempo:latest
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./tempo-config.yaml:/etc/tempo.yaml
+      - tempo_data:/var/tempo
+    ports:
+      - "3200:3200"   # Tempo UI/API
+      - "4317:4317"   # OTLP gRPC receiver (where your app sends traces)
+      - "4318:4318"   # OTLP HTTP receiver
+    networks:
+      - monitoring_net
+
+volumes:
+  loki_data:
+  prometheus_data:
+  promtail_positions:
+  tempo_data:
+ 
+networks:
+  monitoring_net:
+    driver: bridge
+    name: monitoring_shared_network

@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36603.0 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "aspnetapp", "aspnetapp.csproj", "{506B125C-3AE6-06FA-B08F-2A7C20D6FDFB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{506B125C-3AE6-06FA-B08F-2A7C20D6FDFB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{506B125C-3AE6-06FA-B08F-2A7C20D6FDFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{506B125C-3AE6-06FA-B08F-2A7C20D6FDFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{506B125C-3AE6-06FA-B08F-2A7C20D6FDFB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A35F2DF3-618C-485E-9D9E-D2C49E8E6F65}
+	EndGlobalSection
+EndGlobal

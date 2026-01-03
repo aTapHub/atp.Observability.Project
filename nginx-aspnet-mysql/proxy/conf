@@ -1,0 +1,24 @@
+worker_processes auto; # Global context
+
+events {
+    worker_connections 2048; 
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    server {
+        listen 80;
+        
+        location / {
+            proxy_pass http://backend:8000;
+        }
+
+        location /stub_status {
+            stub_status on;
+            access_log off;
+            allow all;
+        }
+    }
+}

@@ -1,0 +1,65 @@
+services:
+  backend:
+    build:
+      context: backend
+    restart: always
+    ports:
+      - "8000:8000"
+    secrets:
+      - db-password
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_URLS=http://+:8000
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4318 # Note: 4318 is for HTTP
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http_protobuf      # Force HTTP instead of gRPC
+      - OTEL_SERVICE_NAME=atp-backend
+    networks:
+      - monitoring_net
+
+  db:
+    # We use a mariadb image which supports both amd64 & arm64 architecture
+    image: mariadb:10-focal
+    # If you really want to use MySQL, uncomment the following line
+    #image: mysql:8
+    command: '--default-authentication-plugin=mysql_native_password'
+    restart: always
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 --password="$$(cat /run/secrets/db-password)" --silent']
+      interval: 3s
+      retries: 5
+      start_period: 30s
+    secrets:
+      - db-password
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./init-exporter.sql:/docker-entrypoint-initdb.d/init-exporter.sql:ro
+    environment:
+      - MYSQL_DATABASE=example
+      - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/db-password
+    networks:
+      - monitoring_net
+
+  proxy:
+    build: proxy
+    ports:
+      - 80:80
+    volumes:
+      - ./proxy/conf:/etc/nginx/nginx.conf:ro # Mounts over the main global config
+    depends_on: 
+      - backend
+    networks:
+      - monitoring_net
+
+networks:
+  monitoring_net:
+    driver: bridge
+    name: monitoring_shared_network
+
+volumes:
+  db-data:
+
+secrets:
+  db-password:
+    file: db/password.txt
